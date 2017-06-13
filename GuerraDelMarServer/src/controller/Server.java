@@ -48,14 +48,14 @@ public class Server extends Thread implements IConstants{
                                 send.println(RECHAZADO);
                             }else{
                                 userManager.addUser(userName);
-                                send.println(ACEPTADO);
+                                send.println(ACEPTED);
                             }   break;
                         case GET_USERS:
                             String list = "";
                             for (int i = 0; i < userManager.getUserList().size(); i++) {
                                 list += userManager.getUserList().get(i) + "#";
                             }   send.println(list);
-                            send.println(ACEPTADO);
+                            send.println(ACEPTED);
                             break;
                         case SEND_MESSAGE:
                             conversation += receive.readLine() + "#";
@@ -63,6 +63,14 @@ public class Server extends Thread implements IConstants{
                             break;
                         case UPDATE_CONVERSATION:
                             send.println(conversation);
+                        case USER_OFF:
+                            userName = receive.readLine();
+                            if(userManager.validateUserExists(userName)){
+                                userManager.getUserList().remove(userName);
+                                send.println(ACEPTED);
+                            }else{
+                                send.println(RECHAZADO);
+                            }
                         default:
                             break;
                     }
