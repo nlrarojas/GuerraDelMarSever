@@ -7,6 +7,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import model.Player;
 import model.UserManager;
 import util.IConstants;
 
@@ -87,14 +88,15 @@ public class Server extends Thread implements IConstants {
                 userName = receive.readUnshared().toString();
                 System.out.println(userName);
                 if (userManager.validateUserExists(userName)) {
-                    System.out.println("1");
                     userManager.getUserList().remove(userName);
                     send.writeUnshared(ACEPTED);
                 } else {
-                    System.out.println("2");
                     send.writeUnshared(RECHAZADO);
                 }
-                System.out.println("3");
+            case CHANGE_READY:                
+                Player player = (Player)receive.readUnshared();
+                userManager.addPlayer(player);
+                send.writeUnshared(ACEPTED);
             default:
                 break;
         }
