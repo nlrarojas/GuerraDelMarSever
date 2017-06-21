@@ -1,12 +1,12 @@
 package controller;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
-
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import model.UserManager;
 import util.IConstants;
 
@@ -14,70 +14,97 @@ import util.IConstants;
  *
  * @author Nelson
  */
-public class Server extends Thread implements IConstants{
+public class Server extends Thread implements IConstants {
+
     public int port;
     public String conversation;
     public String instruction;
     private UserManager userManager;
+    private ObjectOutputStream send;
+    private ObjectInputStream receive;
     
-    public Server(int pPort){
+    private boolean serverRunning;
+
+    public Server(int pPort) {
         super("Servidor");
         this.port = pPort;
         this.instruction = "";
         this.conversation = "";
-        userManager = new UserManager();
+        this.userManager = new UserManager();
+        this.serverRunning = true;
     }
-    
+
     @Override
-    public void run(){
+    public void run() {
         try {
             ServerSocket serverSocket = new ServerSocket(this.port);
             System.out.println("Iniciado");
-            do {
+            while (serverRunning) {
                 try (Socket socket = serverSocket.accept()) {
-                    PrintStream send = new PrintStream(socket.getOutputStream());
-                    BufferedReader receive = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                    send.println("Este es el servidor");
-                    send.println("listo");
-                    
-                    instruction = receive.readLine();
-                    switch (instruction) {
-                        case VALIDATE_USER:
-                            String userName = receive.readLine();
-                            if(userManager.validateUserExists(userName)){
-                                send.println(RECHAZADO);
-                            }else{
-                                userManager.addUser(userName);
-                                send.println(ACEPTED);
-                            }   break;
-                        case GET_USERS:
-                            String list = "";
-                            for (int i = 0; i < userManager.getUserList().size(); i++) {
-                                list += userManager.getUserList().get(i) + "#";
-                            }   send.println(list);
-                            send.println(ACEPTED);
-                            break;
-                        case SEND_MESSAGE:
-                            conversation += receive.readLine() + "#";
-                            send.println(conversation);
-                            break;
-                        case UPDATE_CONVERSATION:
-                            send.println(conversation);
-                        case USER_OFF:
-                            userName = receive.readLine();
-                            if(userManager.validateUserExists(userName)){
-                                userManager.getUserList().remove(userName);
-                                send.println(ACEPTED);
-                            }else{
-                                send.println(RECHAZADO);
-                            }
-                        default:
-                            break;
-                    }
-                }                        
-            } while (true);
+                    send = new ObjectOutputStream(socket.getOutputStream());
+                    receive = new ObjectInputStream(socket.getInputStream());
+                    send.writeUnshared("Este es el servidor");
+                    send.writeUnshared("listo");
+
+                    instruction = receive.readObject().toString();
+                    System.out.println(instruction);
+                    executeInstruction(instruction);
+                } catch (ClassNotFoundException ex) {
+                    Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
         } catch (IOException ex) {
             System.err.println(ex.getMessage());
         }
+    }
+
+    public void executeInstruction(String pInstruction) throws IOException, ClassNotFoundException {
+        switch (instruction) {
+            case VALIDATE_USER:
+                String userName = receive.readUnshared().toString();
+                if (userManager.validateUserExists(userName)) {
+                    send.writeUnshared(RECHAZADO);
+                } else {
+                    userManager.addUser(userName);
+                    send.writeUnshared(ACEPTED);
+                }
+                break;
+            case GET_USERS:
+                String list = "";
+                for (int i = 0; i < userManager.getUserList().size(); i++) {
+                    list += userManager.getUserList().get(i) + "#";
+                }
+                send.writeUnshared(list);
+                send.writeUnshared(ACEPTED);
+                break;
+            case SEND_MESSAGE:
+                conversation += receive.readUnshared().toString() + "#";
+                send.writeUnshared(conversation);
+                break;
+            case UPDATE_CONVERSATION:
+                send.writeUnshared(conversation);
+            case USER_OFF:
+                userName = receive.readUnshared().toString();
+                System.out.println(userName);
+                if (userManager.validateUserExists(userName)) {
+                    System.out.println("1");
+                    userManager.getUserList().remove(userName);
+                    send.writeUnshared(ACEPTED);
+                } else {
+                    System.out.println("2");
+                    send.writeUnshared(RECHAZADO);
+                }
+                System.out.println("3");
+            default:
+                break;
+        }
+    }
+
+    public boolean isServerRunning() {
+        return serverRunning;
+    }
+
+    public void setServerRunning(boolean serverRunning) {
+        this.serverRunning = serverRunning;
     }
 }
